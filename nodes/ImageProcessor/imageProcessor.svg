@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="60px" height="60px" viewBox="0 0 60 60" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <!-- 背景圆角矩形 -->
+        <rect fill="#FF9F43" x="2" y="2" width="56" height="56" rx="8"/>
+        
+        <!-- 图片框架 -->
+        <rect x="15" y="15" width="30" height="30" rx="4" stroke="#FFFFFF" stroke-width="2" fill="#FFFFFF" fill-opacity="0.2"/>
+        
+        <!-- 图片内容 -->
+        <circle cx="30" cy="25" r="5" fill="#FFFFFF"/>
+        <path d="M20,35 L40,35" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M25,40 L35,40" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+        
+        <!-- 处理效果 -->
+        <path d="M45,15 L55,25" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+        <path d="M55,15 L45,25" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+    </g>
+</svg> 

@@ -1,0 +1,67 @@
+{
+  "name": "n8n-nodes-klib",
+  "version": "0.1.0",
+  "description": "A collection of useful n8n nodes for file system operations, aria2 integration, image processing and torrent parsing",
+  "keywords": [
+    "n8n-community-node-package",
+    "file-system",
+    "fs",
+    "aria2",
+    "image-processing",
+    "torrent"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/yorkane/n8n-nodes-klib",
+  "author": {
+    "name": "Yorkane",
+    "email": "yorkane@example.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yorkane/n8n-nodes-klib.git"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "nodes": [
+      "dist/nodes/ImageProcessor/ImageProcessor.node.js",
+      "dist/nodes/Aria2/Aria2.node.js",
+      "dist/nodes/Aria2/Aria2Proc.node.js",
+      "dist/nodes/TorrentParse/TorrentParse.node.js"
+    ]
+  },
+  "dependencies": {
+    "@types/mime-types": "^2.1.4",
+    "axios": "^1.6.7",
+    "pnpm": "^10.9.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.9",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "eslint-plugin-n8n-nodes-base": "^1.11.0",
+    "gulp": "^4.0.2",
+    "gulp-rename": "^2.0.0",
+    "gulp-svgmin": "^4.1.0",
+    "n8n-workflow": "^0.107.0",
+    "prettier": "^2.7.1",
+    "typescript": "~4.8.4"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "^0.107.0"
+  },
+  "packageManager": "pnpm@10.8.1+sha512.c50088ba998c67b8ca8c99df8a5e02fd2ae2e2b29aaf238feaa9e124248d3f48f9fb6db2424949ff901cffbb5e0f0cc1ad6aedb602cd29450751d11c35023677"
+}
