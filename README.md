@@ -1,30 +1,56 @@
-# n8n 文件操作类 自定义节点
+# n8n File System Operations Custom Node
 
-这是一个n8n自定义节点，用于文件系统操作。
+This is a custom n8n node for file system operations.
 
-## 功能特性
+## Features
 
-- 列出指定目录的文件夹和文件信息，并提供排序支持（按照时间，类型，文件名等）
-- 提供清理空目录功能，包括递归清理，压缩目录层级
-- 提供文件名修复功能，对不兼容windows文件系统的文件名和目录名进行修改
+- List files and folders in a specified directory with sorting support (by time, type, filename, etc.)
+- Clean empty directories, including recursive cleaning and directory level compression
+- Fix filenames that are incompatible with Windows file system
 
-## 安装
+## Installation
 
-1. 进入n8n自定义节点目录
+1. Navigate to n8n custom nodes directory
 ```bash
 cd ~/.n8n/custom
 ```
 
-2. 克隆此仓库
+2. Clone this repository
 ```bash
 git clone https://github.com/yorkane/n8n-nodes-klib.git
 ```
 
-3. 安装依赖
+3. Install dependencies
 ```bash
 cd n8n-nodes-klib
 pnpm install
 ```
 
-4. 构建节点
+4. Build the nodes
+```bash
+pnpm run build
 ```
+
+## Publishing to npm
+
+1. Make sure you have an npm account and are logged in
+```bash
+npm login
+```
+
+2. Update the version in package.json if needed
+```bash
+npm version patch  # or minor, or major
+```
+
+3. Build the package
+```bash
+pnpm run build
+```
+
+4. Publish to npm
+```bash
+npm publish
+```
+
+Note: Make sure you have the correct npm registry configured and have the necessary permissions to publish the package.

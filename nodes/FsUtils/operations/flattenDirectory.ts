@@ -13,10 +13,10 @@ export async function flattenDirectory(dirPath: string): Promise<FlattenResult[]
     const results: FlattenResult[] = [];
     
     try {
-        // 首先修复目录名，确保可以访问所有目录
+        // First fix directory names to ensure all directories are accessible
         await fixFileNames(dirPath, true, true);
         
-        // 递归处理所有文件
+        // Process all files recursively
         const processFiles = async (dir: string) => {
             const items = await fs.promises.readdir(dir, { withFileTypes: true });
             
@@ -24,12 +24,12 @@ export async function flattenDirectory(dirPath: string): Promise<FlattenResult[]
                 const fullPath = path.join(dir, item.name);
                 
                 if (item.isFile()) {
-                    // 仅处理非根目录的文件
+                    // Only process files that are not in the root directory
                     if (dir !== dirPath) {
                         let newPath = path.join(dirPath, item.name);
                         let counter = 1;
                         
-                        // 处理文件名冲突
+                        // Handle filename conflicts
                         while (await pathExists(newPath)) {
                             const ext = path.extname(item.name);
                             const basename = path.basename(item.name, ext);
@@ -62,7 +62,7 @@ export async function flattenDirectory(dirPath: string): Promise<FlattenResult[]
         
         await processFiles(dirPath);
         
-        // 清理空目录
+        // Clean up empty directories
         const removeEmptyDirs = async (dir: string) => {
             const items = await fs.promises.readdir(dir);
             
@@ -98,7 +98,7 @@ export async function flattenDirectory(dirPath: string): Promise<FlattenResult[]
         await removeEmptyDirs(dirPath);
         
     } catch (error) {
-        console.error(`处理目录 "${dirPath}" 时出错:`, error);
+        console.error(`Error processing directory "${dirPath}":`, error);
         throw error;
     }
     

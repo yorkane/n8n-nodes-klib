@@ -67,7 +67,7 @@ export class FsUtils implements INodeType {
 					{
 						name: 'Read File',
 						value: 'readFile',
-						description: '读取文件内容',
+						description: 'Read file content',
 					},
 				],
 				default: 'listDirectory',
