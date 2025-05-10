@@ -1,0 +1,20 @@
+{
+  "rules": {
+    "comments": {
+      "language": "zh-CN",
+      "description": "所有代码注释必须使用中文"
+    },
+    "errorMessages": {
+      "language": "en-US",
+      "description": "所有错误信息必须使用英文"
+    },
+    "ui": {
+      "language": "en-US",
+      "description": "所有UI界面文本必须使用英文"
+    },
+    "logs": {
+      "language": "en-US",
+      "description": "所有日志输出必须使用英文"
+    }
+  }
+} 

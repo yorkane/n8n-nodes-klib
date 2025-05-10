@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fixFileNames } from './fixFileNames';
+import { checkDirectorySafety, DirectoryProtectionConfig } from './directoryProtection';
 
 export interface FlattenResult {
     originalPath: string;
@@ -9,8 +10,14 @@ export interface FlattenResult {
     success: boolean;
 }
 
-export async function flattenDirectory(dirPath: string): Promise<FlattenResult[]> {
-    const results: FlattenResult[] = [];
+export async function flattenDirectory(
+	dirPath: string,
+	protectionConfig?: DirectoryProtectionConfig
+): Promise<Array<{ source: string; target: string }>> {
+	// 检查目录安全性
+	checkDirectorySafety(dirPath, protectionConfig);
+
+	const results: FlattenResult[] = [];
     
     try {
         // First fix directory names to ensure all directories are accessible
@@ -102,7 +109,11 @@ export async function flattenDirectory(dirPath: string): Promise<FlattenResult[]
         throw error;
     }
     
-    return results;
+    // Convert FlattenResult[] to { source: string; target: string }[]
+    return results.map(result => ({
+        source: result.originalPath,
+        target: result.newPath
+    }));
 }
 
 async function pathExists(path: string): Promise<boolean> {

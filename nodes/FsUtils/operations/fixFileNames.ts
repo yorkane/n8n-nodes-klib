@@ -58,7 +58,7 @@ export async function fixFileNames(dirPath: string, recursive: boolean = true, o
 				});
 			}
 		} catch (error) {
-			console.error('执行iconv命令时出错:', error);
+			console.error('Error executing iconv command:', error);
 			// 如果iconv命令失败，尝试使用mv命令直接处理
 			try {
 				// 使用mv命令直接处理文件名
@@ -86,14 +86,14 @@ export async function fixFileNames(dirPath: string, recursive: boolean = true, o
 					});
 				}
 			} catch (mvError) {
-				console.error('执行mv命令时出错:', mvError);
+				console.error('Error executing mv command:', mvError);
 				// 如果mv命令也失败，回退到备用方法
 				return fixFileNamesFallback(dirPath, recursive, onlyDirectories);
 			}
 		}
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error(`处理目录 "${dirPath}" 时出错:`, error);
+		console.error(`Error processing directory "${dirPath}":`, error);
 		throw error;
 	}
 	
@@ -174,13 +174,13 @@ async function fixFileNamesFallback(dirPath: string, recursive: boolean = true, 
 					success: false,
 					error: errorMessage
 				});
-				console.error(`处理文件 "${entry.name}" 时出错:`, error);
+				console.error(`Error processing file "${entry.name}":`, error);
 				continue;
 			}
 		}
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error(`读取目录 "${dirPath}" 时出错:`, error);
+		console.error(`Error reading directory "${dirPath}":`, error);
 		throw error;
 	}
 	
@@ -233,7 +233,7 @@ function sanitizeFileName(fileName: string): string {
 		
 		return safeFileName;
 	} catch (error) {
-		console.error('文件名处理出错:', error);
+		console.error('Error processing filename:', error);
 		return 'unnamed_file';
 	}
 } 

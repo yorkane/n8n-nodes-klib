@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-klib",
-  "version": "0.1.4",
+  "version": "0.1.14",
   "description": "A collection of useful n8n nodes for file system operations, aria2 integration, image processing and torrent parsing",
   "keywords": [
     "n8n-community-node-package",
@@ -24,10 +24,10 @@
   "scripts": {
     "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
-    "format": "prettier nodes credentials --write",
-    "lint": "eslint nodes credentials package.json",
-    "lintfix": "eslint nodes credentials package.json --fix",
-    "prepublishOnly": "npm run build"
+    "format": "prettier nodes --write",
+    "lint": "eslint nodes package.json",
+    "lintfix": "eslint nodes --fix",
+    "prepublishOnly": "npm run build && npm run lint"
   },
   "files": [
     "dist"

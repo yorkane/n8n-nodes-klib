@@ -41,7 +41,7 @@ function torrent2magnet(buffer_content: Uint8Array) {
 	const main_tracker = torrent.announce ? decoder.decode(torrent.announce) : "";
 
 	// url of trackers (tr)
-	let tracker_list = [];
+	const tracker_list = [];
 	const announce_list = torrent["announce-list"];
 	if (announce_list) {
 		for (let i = 0; i < announce_list.length; i++) {

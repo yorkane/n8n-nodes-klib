@@ -50,7 +50,11 @@ pnpm run build
 
 4. Publish to npm
 ```bash
-npm publish
+npm publish --tag latest
 ```
 
 Note: Make sure you have the correct npm registry configured and have the necessary permissions to publish the package.
+
+```
+rm -rf dist && pnpm build && docker restart n8n && npm publish --tag latest
+```
