@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Buffer } from 'buffer';
-import { fixFileNames } from './fixFileNames';
+import { IDataObject } from 'n8n-workflow';
 
 /**
  * 目录列表选项接口
@@ -9,10 +8,10 @@ import { fixFileNames } from './fixFileNames';
 interface ListDirectoryOptions {
 	dirPath: string;           // 目录路径
 	sortBy: string;           // 排序方式
+	sortDirection: 'asc' | 'desc'; // 排序方向
 	filter?: string;          // 文件名过滤正则表达式
 	showFiles?: boolean;      // 是否显示文件
 	showDirectories?: boolean; // 是否显示目录
-	fixPathName?: boolean;    // 是否修复路径名称
 	maxDepth?: number;        // 遍历深度，默认为1，最大为9
 	onlyLeafDirs?: boolean;   // 是否只显示末级目录（不包含子目录的目录）
 }
@@ -20,14 +19,13 @@ interface ListDirectoryOptions {
 /**
  * 文件信息接口
  */
-interface FileInfo {
+interface FileInfo extends IDataObject {
 	name: string;            // 文件名
 	path: string;            // 文件路径
 	parent: string;         // 父目录路径
 	type: 'directory' | 'file'; // 类型
 	size: number;           // 文件大小
 	mtime: Date;           // 修改时间
-	fixed: boolean;        // 是否已修复文件名
 	depth: number;         // 当前深度
 	hasSubDirs?: boolean;  // 是否包含子目录
 }
@@ -55,17 +53,11 @@ async function listDirectoryRecursive(
 	currentDepth: number = 1,
 	results: FileInfo[] = [],
 ): Promise<FileInfo[]> {
-	const { dirPath, fixPathName = false, maxDepth = 1, onlyLeafDirs = false } = options;
+	const { dirPath, maxDepth = 1, onlyLeafDirs = false } = options;
 	
 	// 如果超过最大深度，返回当前结果
 	if (currentDepth > Math.min(maxDepth, 9)) {
 		return results;
-	}
-
-	// 如果启用了修复路径名称，先执行修复
-	let fixResults: any[] = [];
-	if (fixPathName) {
-		fixResults = await fixFileNames(dirPath);
 	}
 	
 	const files = await fs.promises.readdir(dirPath);
@@ -74,28 +66,16 @@ async function listDirectoryRecursive(
 		const fullPath = path.join(dirPath, file);
 		const stats = await fs.promises.stat(fullPath);
 		
-		// 查找是否有修复记录
-		let fixed = false;
-		let fixedPath = fullPath;
-		if (fixPathName) {
-			const fixResult = fixResults.find(r => r.originalPath === fullPath);
-			if (fixResult && fixResult.success !== false) {
-				fixed = true;
-				fixedPath = fixResult.newPath;
-			}
-		}
-
 		const isDirectory = stats.isDirectory();
 		const hasSubDirs = isDirectory ? await hasSubDirectories(fullPath) : false;
 		
 		const fileInfo: FileInfo = {
-			name: path.basename(fixedPath),
-			path: fixedPath,
+			name: path.basename(fullPath),
+			path: fullPath,
 			parent: dirPath,
 			type: isDirectory ? 'directory' : 'file',
 			size: stats.size,
 			mtime: stats.mtime,
-			fixed,
 			depth: currentDepth,
 			hasSubDirs,
 		};
@@ -129,6 +109,7 @@ export async function listDirectory(options: ListDirectoryOptions): Promise<File
 	const {
 		dirPath,
 		sortBy,
+		sortDirection,
 		filter,
 		showFiles = true,
 		showDirectories = true,
@@ -137,33 +118,40 @@ export async function listDirectory(options: ListDirectoryOptions): Promise<File
 	} = options;
 
 	// 获取展平的文件列表
-	let results = await listDirectoryRecursive({
+	const results = await listDirectoryRecursive({
 		dirPath,
 		showFiles,
 		showDirectories,
 		filter,
 		sortBy,
+		sortDirection,
 		maxDepth: Math.min(Math.max(maxDepth, 1), 9),
 		onlyLeafDirs,
 	});
 
 	// 应用名称过滤
+	let filteredResults = results;
 	if (filter) {
 		const regex = new RegExp(filter);
-		results = results.filter(file => regex.test(file.name));
+		filteredResults = results.filter(file => regex.test(file.name));
 	}
 
 	// 排序
-	return results.sort((a, b) => {
+	return filteredResults.sort((a, b) => {
+		let comparison = 0;
 		switch (sortBy) {
 			case 'name':
-				return a.name.localeCompare(b.name);
+				comparison = a.name.localeCompare(b.name);
+				break;
 			case 'mtime':
-				return b.mtime.getTime() - a.mtime.getTime();
+				comparison = b.mtime.getTime() - a.mtime.getTime();
+				break;
 			case 'type':
-				return a.type.localeCompare(b.type);
+				comparison = a.type.localeCompare(b.type);
+				break;
 			default:
 				return 0;
 		}
+		return sortDirection === 'asc' ? comparison : -comparison;
 	});
 } 
