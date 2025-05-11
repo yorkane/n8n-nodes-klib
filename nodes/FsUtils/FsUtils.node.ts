@@ -223,6 +223,10 @@ export class FsUtils implements INodeType {
 						value: 'auto',
 					},
 					{
+						name: 'String',
+						value: 'string',
+					},
+					{
 						name: 'Base64',
 						value: 'base64',
 					},
@@ -238,12 +242,75 @@ export class FsUtils implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Digest Algorithm',
+				name: 'digestAlgorithm',
+				type: 'options',
+				options: [
+					{
+						name: 'None',
+						value: 'none',
+					},
+					{
+						name: 'XXHash64',
+						value: 'xxhash64',
+					},
+					{
+						name: 'MD5',
+						value: 'md5',
+					},
+					{
+						name: 'SHA1',
+						value: 'sha1',
+					},
+					{
+						name: 'SHA256',
+						value: 'sha256',
+					},
+					{
+						name: 'SHA512',
+						value: 'sha512',
+					},
+				],
+				default: 'none',
+				displayOptions: {
+					show: {
+						operation: ['readFile'],
+					},
+				},
+			},
+			{
+				displayName: 'Salt',
+				name: 'salt',
+				type: 'string',
+				default: '',
+				description: '可选的salt值，用于增加摘要的安全性',
+				displayOptions: {
+					show: {
+						operation: ['readFile'],
+						digestAlgorithm: ['md5', 'sha1', 'sha256', 'sha512'],
+					},
+				},
+			},
+			{
+				displayName: 'Only Output Digest',
+				name: 'onlyOutputDigest',
+				type: 'boolean',
+				default: false,
+				description: '如果选中，则只输出摘要而不输出内容',
+				displayOptions: {
+					show: {
+						operation: ['readFile'],
+						digestAlgorithm: ['md5', 'sha1', 'sha256', 'sha512'],
+					},
+				},
+			},
 		],
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
-		const returnData: IDataObject[] = [];
+		const returnData: INodeExecutionData[] = [];
 		
 		try {
 			const operation = this.getNodeParameter('operation', 0) as string;
@@ -276,7 +343,13 @@ export class FsUtils implements INodeType {
 							sortDirection: sortDirection as 'asc' | 'desc',
 							filter,
 						});
-						returnData.push(...result);
+						
+						// 将结果转换为 INodeExecutionData 格式
+						result.forEach(item => {
+							returnData.push({
+								json: item
+							});
+						});
 					} else if (operation === 'findFiles') {
 						const directoryPath = this.getNodeParameter('directoryPath', i) as string;
 						if (!directoryPath) {
@@ -328,7 +401,12 @@ export class FsUtils implements INodeType {
 							return sortDirection === 'asc' ? comparison : -comparison;
 						});
 
-						returnData.push(...result);
+						// 将结果转换为 INodeExecutionData 格式
+						result.forEach(item => {
+							returnData.push({
+								json: item
+							});
+						});
 					} else if (operation === 'readFile') {
 						const filePath = this.getNodeParameter('filePath', i) as string;
 						if (!filePath) {
@@ -336,9 +414,18 @@ export class FsUtils implements INodeType {
 						}
 						
 						const outputFormat = this.getNodeParameter('outputFormat', i) as string || 'auto';
+						const digestAlgorithm = this.getNodeParameter('digestAlgorithm', i) as string || 'none';
+						const salt = digestAlgorithm !== 'none' ? this.getNodeParameter('salt', i) as string || '' : '';
+						const onlyOutputDigest = digestAlgorithm !== 'none' ? this.getNodeParameter('onlyOutputDigest', i) as boolean || false : false;
+						
 						const result = await readFile({
 							filePath,
-							outputFormat: outputFormat as 'auto' | 'base64' | 'binary',
+							outputFormat: outputFormat as 'auto' | 'base64' | 'binary' | 'string',
+							digestAlgorithm: digestAlgorithm as 'none' | 'md5' | 'sha1' | 'sha256' | 'sha512',
+							context: this,
+							itemIndex: i,
+							salt,
+							onlyOutputDigest,
 						});
 						returnData.push(result);
 					} else {
@@ -347,10 +434,11 @@ export class FsUtils implements INodeType {
 				} catch (error) {
 					if (this.continueOnFail()) {
 						returnData.push({ 
-							...items[i].json, 
-							error: error.message || 'Unknown error occurred',
-							operation,
-							timestamp: new Date().toISOString()
+							json: { 
+								error: error.message || 'Unknown error occurred',
+								operation,
+								timestamp: new Date().toISOString()
+							}
 						});
 						continue;
 					}
@@ -360,14 +448,16 @@ export class FsUtils implements INodeType {
 		} catch (error) {
 			if (this.continueOnFail()) {
 				returnData.push({ 
-					error: error.message || 'Unknown error occurred',
-					timestamp: new Date().toISOString()
+					json: { 
+						error: error.message || 'Unknown error occurred',
+						timestamp: new Date().toISOString()
+					}
 				});
 			} else {
 				throw error;
 			}
 		}
 
-		return [this.helpers.returnJsonArray(returnData)];
+		return [returnData];
 	}
 } 

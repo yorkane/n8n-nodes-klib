@@ -8,9 +8,8 @@ interface RenameOptions {
     replacement?: string;
 }
 
-export async function rename(options: RenameOptions): Promise<{ renamed: string[] }> {
+export async function rename(options: RenameOptions): Promise<{ renamed: string | null }> {
     const { sourcePath, targetPath, pattern, replacement } = options;
-    const renamed: string[] = [];
 
     // 确保目标目录存在
     await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
@@ -20,21 +19,26 @@ export async function rename(options: RenameOptions): Promise<{ renamed: string[
 
     if (stats.isFile()) {
         let finalTargetPath = targetPath;
+        let isRenamed = false;
         
         // 如果提供了pattern和replacement，进行正则替换
         if (pattern && replacement) {
             const regex = new RegExp(pattern);
-            const fileName = path.basename(sourcePath);
+            const fileName = path.basename(targetPath);
             if (regex.test(fileName)) {
                 const newFileName = fileName.replace(regex, replacement);
                 finalTargetPath = path.join(path.dirname(targetPath), newFileName);
+                isRenamed = true;
             }
         }
 
         await fs.promises.rename(sourcePath, finalTargetPath);
-        renamed.push(sourcePath);
+        if (isRenamed || sourcePath !== finalTargetPath) {
+            return { renamed: finalTargetPath };
+        }
     } else if (stats.isDirectory()) {
         let finalTargetPath = targetPath;
+        let isRenamed = false;
         
         // 如果提供了pattern和replacement，进行正则替换
         if (pattern && replacement) {
@@ -43,12 +47,15 @@ export async function rename(options: RenameOptions): Promise<{ renamed: string[
             if (regex.test(dirName)) {
                 const newDirName = dirName.replace(regex, replacement);
                 finalTargetPath = path.join(path.dirname(targetPath), newDirName);
+                isRenamed = true;
             }
         }
 
         await fs.promises.rename(sourcePath, finalTargetPath);
-        renamed.push(sourcePath);
+        if (isRenamed || sourcePath !== finalTargetPath) {
+            return { renamed: finalTargetPath };
+        }
     }
 
-    return { renamed };
+    return { renamed: undefined };
 } 
