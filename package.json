@@ -8,10 +8,7 @@
     "fs",
     "aria2",
     "image-processing",
-    "torrent",
-    "jieba",
-    "chinese",
-    "segmentation"
+    "torrent"
   ],
   "license": "MIT",
   "homepage": "https://github.com/yorkane/n8n-nodes-klib",
@@ -23,7 +20,6 @@
     "type": "git",
     "url": "https://github.com/yorkane/n8n-nodes-klib.git"
   },
-  "main": "dist/index.js",
   "scripts": {
     "build": "npx tsc && gulp build:icons",
     "dev": "tsc --watch",
@@ -36,25 +32,10 @@
     "dist",
     "lib"
   ],
-  "n8n": {
-    "n8nNodesApiVersion": 1,
-    "credentials": [],
-    "nodes": [
-      "dist/nodes/ImageProcessor/ImageProcessor.node.js",
-      "dist/nodes/Aria2/Aria2.node.js",
-      "dist/nodes/Aria2/Aria2Proc.node.js",
-      "dist/nodes/TorrentParse/TorrentParse.node.js",
-      "dist/nodes/FsUtils/FsUtils.node.js",
-      "dist/nodes/FsOperate/FsOperate.node.js",
-      "dist/nodes/Jieba/JiebaSegment.node.js"
-    ]
-  },
   "dependencies": {
-    "@node-rs/jieba": "^2.0.1",
     "@types/mime-types": "^2.1.4",
     "axios": "^1.6.7",
     "pnpm": "^10.9.0",
-    "rocketmq-client-nodejs": "^1.0.1",
     "ws": "^8.16.0"
   },
   "devDependencies": {
