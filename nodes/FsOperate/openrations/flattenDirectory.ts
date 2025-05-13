@@ -89,7 +89,7 @@ export async function flattenDirectory(
                                 type: 'directory',
                                 success: true
                             });
-                        } catch (error) {
+                        } catch (_) {
                             results.push({
                                 originalPath: fullPath,
                                 newPath: '',

@@ -14,6 +14,7 @@ interface ListDirectoryOptions {
 	showDirectories?: boolean; // 是否显示目录
 	maxDepth?: number;        // 遍历深度，默认为1，最大为9
 	onlyLeafDirs?: boolean;   // 是否只显示末级目录（不包含子目录的目录）
+	maxRecords?: number;      // 最大返回记录数
 }
 
 /**
@@ -115,6 +116,7 @@ export async function listDirectory(options: ListDirectoryOptions): Promise<File
 		showDirectories = true,
 		maxDepth = 1,
 		onlyLeafDirs = false,
+		maxRecords = 100,
 	} = options;
 
 	// 获取展平的文件列表
@@ -137,7 +139,7 @@ export async function listDirectory(options: ListDirectoryOptions): Promise<File
 	}
 
 	// 排序
-	return filteredResults.sort((a, b) => {
+	const sortedResults = filteredResults.sort((a, b) => {
 		let comparison = 0;
 		switch (sortBy) {
 			case 'name':
@@ -154,4 +156,7 @@ export async function listDirectory(options: ListDirectoryOptions): Promise<File
 		}
 		return sortDirection === 'asc' ? comparison : -comparison;
 	});
+
+	// 限制返回记录数
+	return sortedResults.slice(0, maxRecords);
 } 

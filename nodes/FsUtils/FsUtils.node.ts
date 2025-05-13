@@ -3,11 +3,13 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	IDataObject,
+	IBinaryData,
 } from 'n8n-workflow';
 import { listDirectory } from './operations/listDirectory';
 import { readFile } from './operations/readFile';
 import { findFiles } from './operations/findFiles';
+import { writeFile } from './operations/writeFile';
+import { searchContent } from './operations/searchContent';
 
 export class FsUtils implements INodeType {
 	description: INodeTypeDescription = {
@@ -45,6 +47,16 @@ export class FsUtils implements INodeType {
 						value: 'readFile',
 						description: 'Read file content',
 					},
+					{
+						name: 'Write File',
+						value: 'writeFile',
+						description: 'Write content to a file',
+					},
+					{
+						name: 'Search Content',
+						value: 'searchContent',
+						description: 'Search for content in a file using grep',
+					},
 				],
 				default: 'listDirectory',
 			},
@@ -66,20 +78,28 @@ export class FsUtils implements INodeType {
 				type: 'multiOptions',
 				options: [
 					{
-						name: 'Images (*.jpg,*.png,*.gif)',
-						value: '.jpg,.png,.gif',
+						name: 'Images (jpg,png,gif,bmp,webp,svg)',
+						value: '.jpg,.png,.gif,.bmp,.webp,.jpeg,svg',
 					},
 					{
-						name: 'Documents (*.pdf,*.doc,*.docx)',
-						value: '.pdf,.doc,.docx',
+						name: 'Documents (pdf,doc,docx,xls,xlsx,ppt,pptx)',
+						value: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx',
 					},
 					{
-						name: 'Archives (*.zip,*.rar,*.7z)',
-						value: '.zip,.rar,.7z',
+						name: 'Archives (zip,rar,7z,tar,gz,bz2,xz)',
+						value: '.zip,.rar,.7z,.tar,.gz,.bz2,.xz',
 					},
 					{
-						name: 'Videos (*.mp4,*.avi,*.mkv)',
-						value: '.mp4,.avi,.mkv',
+						name: 'Videos (mp4,avi,mkv,mov,flv,wmv,webm)',
+						value: '.mp4,.avi,.mkv,.mov,.flv,.wmv,.webm',
+					},
+					{
+						name: 'Audio (mp3,wav,ogg,m4a,aac,flac,wma)',
+						value: '.mp3,.wav,.ogg,.m4a,.aac,.flac,.wma',
+					},
+					{
+						name: 'Text (txt,log,md,csv,json,xml,yaml,html,htm,css,js)',
+						value: '.txt,.log,.md,.csv,.json,.xml,.yaml,.html,.htm,.css,.js',
 					},
 				],
 				default: [],
@@ -120,10 +140,23 @@ export class FsUtils implements INodeType {
 						value: 'directories',
 					},
 				],
-				default: 'both',
+				default: 'files',
 				displayOptions: {
 					show: {
 						operation: ['listDirectory', 'findFiles'],
+					},
+				},
+			},
+			{
+				displayName: 'Only Leaf Folders',
+				name: 'onlyLeafFolders',
+				type: 'boolean',
+				default: false,
+				description: '如果选中，则只返回没有子目录的目录',
+				displayOptions: {
+					show: {
+						operation: ['listDirectory', 'findFiles'],
+						showType: ['directories', 'both'],
 					},
 				},
 			},
@@ -159,6 +192,22 @@ export class FsUtils implements INodeType {
 					{
 						name: 'Type',
 						value: 'type',
+					},
+					{
+						name: 'Size',
+						value: 'size',
+					},
+					{
+						name: 'Depth',
+						value: 'depth',
+					},
+					{
+						name: 'Full Path',
+						value: 'path',
+					},
+					{
+						name: 'Parent Directory',
+						value: 'parent',
 					},
 				],
 				default: 'name',
@@ -207,9 +256,13 @@ export class FsUtils implements INodeType {
 				type: 'string',
 				default: '',
 				required: true,
+				description: '文件路径，每行一个路径',
+				typeOptions: {
+					rows: 4,
+				},
 				displayOptions: {
 					show: {
-						operation: ['readFile'],
+						operation: ['readFile', 'writeFile', 'searchContent'],
 					},
 				},
 			},
@@ -305,6 +358,155 @@ export class FsUtils implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Content',
+				name: 'content',
+				type: 'string',
+				default: '',
+				required: true,
+				description: '要写入文件的内容',
+				typeOptions: {
+					rows: 5,
+				},
+				displayOptions: {
+					show: {
+						operation: ['writeFile'],
+						contentType: ['text'],
+					},
+				},
+			},
+			{
+				displayName: 'Content Type',
+				name: 'contentType',
+				type: 'options',
+				options: [
+					{
+						name: 'Text',
+						value: 'text',
+					},
+					{
+						name: 'Binary',
+						value: 'binary',
+					},
+				],
+				default: 'text',
+				description: '内容类型',
+				displayOptions: {
+					show: {
+						operation: ['writeFile'],
+					},
+				},
+			},
+			{
+				displayName: 'Binary Property',
+				name: 'binaryProperty',
+				type: 'string',
+				default: 'data',
+				required: true,
+				description: '包含二进制数据的属性名称',
+				displayOptions: {
+					show: {
+						operation: ['writeFile'],
+						contentType: ['binary'],
+					},
+				},
+			},
+			{
+				displayName: 'Encoding',
+				name: 'encoding',
+				type: 'options',
+				options: [
+					{
+						name: 'UTF-8',
+						value: 'utf8',
+					},
+					{
+						name: 'ASCII',
+						value: 'ascii',
+					},
+					{
+						name: 'Base64',
+						value: 'base64',
+					},
+					{
+						name: 'Binary',
+						value: 'binary',
+					},
+				],
+				default: 'utf8',
+				description: '文件编码格式',
+				displayOptions: {
+					show: {
+						operation: ['writeFile'],
+						contentType: ['text'],
+					},
+				},
+			},
+			{
+				displayName: 'Append',
+				name: 'append',
+				type: 'boolean',
+				default: false,
+				description: '是否追加到文件末尾',
+				displayOptions: {
+					show: {
+						operation: ['writeFile'],
+					},
+				},
+			},
+			{
+				displayName: 'Create Directory',
+				name: 'createDirectory',
+				type: 'boolean',
+				default: false,
+				description: '如果目录不存在，是否自动创建',
+				displayOptions: {
+					show: {
+						operation: ['writeFile'],
+					},
+				},
+			},
+			{
+				displayName: 'Search Pattern',
+				name: 'searchPattern',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'The text or regex pattern to search for',
+				displayOptions: {
+					show: {
+						operation: ['searchContent'],
+					},
+				},
+			},
+			{
+				displayName: 'Use Regular Expression',
+				name: 'isRegex',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to treat the search pattern as a regular expression',
+				displayOptions: {
+					show: {
+						operation: ['searchContent'],
+					},
+				},
+			},
+			{
+				displayName: 'Maximum Records',
+				name: 'maxRecords',
+				type: 'number',
+				default: 10,
+				description: '限制返回的最大记录数量，避免内存不足',
+				typeOptions: {
+					minValue: 1,
+					maxValue: 5000,
+				},
+				displayOptions: {
+					show: {
+						operation: ['listDirectory', 'findFiles'],
+					},
+				},
+			},
 		],
 	};
 
@@ -333,6 +535,8 @@ export class FsUtils implements INodeType {
 						const sortBy = this.getNodeParameter('sortBy', i) as string ?? 'name';
 						const sortDirection = this.getNodeParameter('sortDirection', i) as string ?? 'asc';
 						const filter = this.getNodeParameter('filter', i) as string || '';
+						const onlyLeafFolders = showDirectories ? this.getNodeParameter('onlyLeafFolders', i) as boolean || false : false;
+						const maxRecords = this.getNodeParameter('maxRecords', i) as number ?? 100;
 
 						const result = await listDirectory({
 							dirPath: directoryPath,
@@ -342,6 +546,8 @@ export class FsUtils implements INodeType {
 							sortBy,
 							sortDirection: sortDirection as 'asc' | 'desc',
 							filter,
+							onlyLeafDirs: onlyLeafFolders,
+							maxRecords,
 						});
 						
 						// 将结果转换为 INodeExecutionData 格式
@@ -372,6 +578,8 @@ export class FsUtils implements INodeType {
 						const sortBy = this.getNodeParameter('sortBy', i) as string ?? 'name';
 						const sortDirection = this.getNodeParameter('sortDirection', i) as string ?? 'asc';
 						const filter = this.getNodeParameter('filter', i) as string || '';
+						const onlyLeafFolders = showDirectories ? this.getNodeParameter('onlyLeafFolders', i) as boolean || false : false;
+						const maxRecords = this.getNodeParameter('maxRecords', i) as number ?? 100;
 
 						const result = await findFiles({
 							dirPath: directoryPath,
@@ -380,25 +588,10 @@ export class FsUtils implements INodeType {
 							showDirectories,
 							maxDepth,
 							filter,
-						});
-
-						// 排序
-						result.sort((a, b) => {
-							let comparison = 0;
-							switch (sortBy) {
-								case 'name':
-									comparison = a.name.localeCompare(b.name);
-									break;
-								case 'mtime':
-									comparison = b.mtime.getTime() - a.mtime.getTime();
-									break;
-								case 'type':
-									comparison = a.type.localeCompare(b.type);
-									break;
-								default:
-									return 0;
-							}
-							return sortDirection === 'asc' ? comparison : -comparison;
+							sortBy,
+							sortDirection: sortDirection as 'asc' | 'desc',
+							onlyLeafDirs: onlyLeafFolders,
+							maxRecords,
 						});
 
 						// 将结果转换为 INodeExecutionData 格式
@@ -428,6 +621,55 @@ export class FsUtils implements INodeType {
 							onlyOutputDigest,
 						});
 						returnData.push(result);
+					} else if (operation === 'writeFile') {
+						const filePath = this.getNodeParameter('filePath', i) as string;
+						if (!filePath) {
+							throw new Error('File path is required');
+						}
+
+						const contentType = this.getNodeParameter('contentType', i) as string;
+						let content: string | IBinaryData;
+						
+						if (contentType === 'binary') {
+							const binaryProperty = this.getNodeParameter('binaryProperty', i) as string;
+							const binaryData = items[i].binary?.[binaryProperty];
+							if (!binaryData) {
+								throw new Error(`未找到二进制数据属性: ${binaryProperty}`);
+							}
+							content = binaryData;
+						} else {
+							content = this.getNodeParameter('content', i) as string;
+						}
+
+						const encoding = this.getNodeParameter('encoding', i) as BufferEncoding;
+						const append = this.getNodeParameter('append', i) as boolean;
+						const createDirectory = this.getNodeParameter('createDirectory', i) as boolean;
+
+						const result = await writeFile({
+							filePath,
+							content,
+							encoding,
+							append,
+							createDirectory,
+							context: this,
+							itemIndex: i,
+						});
+						returnData.push(result);
+					} else if (operation === 'searchContent') {
+						const filePath = this.getNodeParameter('filePath', i) as string;
+						const searchPattern = this.getNodeParameter('searchPattern', i) as string;
+						const isRegex = this.getNodeParameter('isRegex', i) as boolean;
+
+						const results = await searchContent.call(this, filePath, searchPattern, isRegex);
+						
+						// 只有当有搜索结果时才添加到返回数据中
+						if (results.length > 0) {
+							returnData.push({
+								json: {
+									results,
+								},
+							});
+						}
 					} else {
 						throw new Error(`Unsupported operation: ${operation}`);
 					}

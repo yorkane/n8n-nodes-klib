@@ -3,6 +3,7 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	IDataObject,
 } from 'n8n-workflow';
 import { TfIdf, Jieba } from '@node-rs/jieba';
 import { dict, idf } from '@node-rs/jieba/dict'
@@ -128,6 +129,7 @@ export class JiebaSegment implements INodeType {
 
 		for (let i = 0; i < items.length; i++) {
 			// UI可能没有出现，所以需要判断
+			let result: IDataObject | IDataObject[];
 			const operation = this.getNodeParameter('operation', i) as string;
 			const text = this.getNodeParameter('text', i) as string;
 			
@@ -139,31 +141,35 @@ export class JiebaSegment implements INodeType {
 				jieba = Jieba.withDict(dict);
 			}
 
-			let result: any;
+			// 将变量声明移到 switch 语句外部
+			const cutHMM = this.getNodeParameter('HMM', i, true) as boolean;
+			const searchHMM = this.getNodeParameter('HMM', i, true) as boolean;
+			const tagHMM = this.getNodeParameter('HMM', i, true) as boolean;
+			const topK = this.getNodeParameter('topK', i, 10) as number;
+			const minKeywordLength = this.getNodeParameter('minKeywordLength', i, 10) as number;
+			const tfidf = TfIdf.withDict(idf);
+
 			switch (operation) {
 				case 'cut':
-					const cutHMM = this.getNodeParameter('HMM', i, true) as boolean;
-					result = jieba.cut(text, cutHMM);
+					result = { words: jieba.cut(text, cutHMM) };
 					break;
 				case 'cutAll':
-					result = jieba.cutAll(text);
+					result = { words: jieba.cutAll(text) };
 					break;
 				case 'cutForSearch':
-					const searchHMM = this.getNodeParameter('HMM', i, true) as boolean;
-					result = jieba.cutForSearch(text, searchHMM);
+					result = { words: jieba.cutForSearch(text, searchHMM) };
 					break;
 				case 'tag':
-					const tagHMM = this.getNodeParameter('HMM', i, true) as boolean;
-					result = jieba.tag(text, tagHMM);
+					result = { tags: jieba.tag(text, tagHMM).map(tag => ({ word: tag.word, tag: tag.tag })) };
 					break;
 				case 'tfidf':
-					const topK = this.getNodeParameter('topK', i, 10) as number;
-					const minKeywordLength = this.getNodeParameter('minKeywordLength', i, 10) as number;
-					let tfidf = TfIdf.withDict(idf);
 					tfidf.setConfig({
 						minKeywordLength: minKeywordLength,
 					});
-					result = tfidf.extractKeywords(jieba, text, topK);
+					result = { keywords: tfidf.extractKeywords(jieba, text, topK).map(kw => ({ 
+						keyword: kw.keyword, 
+						weight: kw.weight 
+					})) };
 					break;
 				default:
 					throw new Error(`未知的操作类型: ${operation}`);
@@ -178,4 +184,4 @@ export class JiebaSegment implements INodeType {
 
 		return [returnData];
 	}
-} 
+}

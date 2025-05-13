@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-klib",
-  "version": "0.1.14",
+  "version": "0.1.22",
   "description": "A collection of useful n8n nodes for file system operations, aria2 integration, image processing and torrent parsing",
   "keywords": [
     "n8n-community-node-package",
@@ -25,7 +25,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && gulp build:icons",
+    "build": "npx tsc && gulp build:icons",
     "dev": "tsc --watch",
     "format": "prettier nodes --write",
     "lint": "eslint nodes package.json",
@@ -33,18 +33,19 @@
     "prepublishOnly": "npm run build && npm run lint"
   },
   "files": [
-    "dist"
+    "dist",
+    "lib"
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
-    "credentials": [
-    ],
+    "credentials": [],
     "nodes": [
       "dist/nodes/ImageProcessor/ImageProcessor.node.js",
       "dist/nodes/Aria2/Aria2.node.js",
       "dist/nodes/Aria2/Aria2Proc.node.js",
       "dist/nodes/TorrentParse/TorrentParse.node.js",
       "dist/nodes/FsUtils/FsUtils.node.js",
+      "dist/nodes/FsOperate/FsOperate.node.js",
       "dist/nodes/Jieba/JiebaSegment.node.js"
     ]
   },
@@ -53,11 +54,13 @@
     "@types/mime-types": "^2.1.4",
     "axios": "^1.6.7",
     "pnpm": "^10.9.0",
+    "rocketmq-client-nodejs": "^1.0.1",
     "ws": "^8.16.0"
   },
   "devDependencies": {
     "@types/node": "^18.11.9",
     "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.32.0",
     "@typescript-eslint/parser": "^7.15.0",
     "eslint": "^8.56.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.1",
@@ -70,5 +73,5 @@
   "peerDependencies": {
     "n8n-workflow": "*"
   },
-  "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39"
+  "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"
 }

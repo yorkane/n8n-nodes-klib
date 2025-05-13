@@ -3,31 +3,9 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { checkDirectorySafety, DirectoryProtectionConfig } from './directoryProtection';
+import utils from '../../../lib/utils';
 
 const execAsync = promisify(exec);
-
-// 定义受保护的系统目录
-const PROTECTED_DIRS = [
-	'/',
-	'/bin',
-	'/boot',
-	'/dev',
-	'/etc',
-	'/lib',
-	'/lib64',
-	'/proc',
-	'/root',
-	'/run',
-	'/sbin',
-	'/srv',
-	'/sys',
-	'C:\\',
-	'C:\\Windows',
-	'C:\\Program Files',
-	'C:\\Program Files (x86)',
-	'C:\\Users',
-	'C:\\System32',
-];
 
 // 常见文件后缀名列表
 export const COMMON_FILE_EXTENSIONS = [
@@ -78,42 +56,12 @@ interface DeleteFilesOptions {
 	pattern?: string;
 	recursive: boolean;
 	includeFiles: boolean;
-	includeDirectories: boolean;
+	includeSubdirectories: boolean;
 	deleteRootDir: boolean;
 	useShell?: boolean;
 	fileExtensions?: string[];
 	protectionConfig?: DirectoryProtectionConfig;
-}
-
-// 检查目录深度
-function checkDirectoryDepth(dirPath: string): boolean {
-	const normalizedPath = path.normalize(dirPath);
-	const pathParts = normalizedPath.split(path.sep).filter(part => part !== '');
-	
-	// 检查是否是系统根目录或其直接子目录
-	if (PROTECTED_DIRS.some(protectedDir => {
-		const normalizedProtectedDir = path.normalize(protectedDir);
-		return normalizedPath === normalizedProtectedDir || 
-			normalizedPath.startsWith(normalizedProtectedDir + path.sep);
-	})) {
-		return false;
-	}
-
-	// 计算目录深度
-	const depth = pathParts.length;
-	
-	// 只允许删除4级及以上的子目录
-	return depth > 3;
-}
-
-// 检查是否是受保护的系统目录
-function isProtectedDirectory(dirPath: string): boolean {
-	const normalizedPath = path.normalize(dirPath);
-	return PROTECTED_DIRS.some(protectedDir => {
-		const normalizedProtectedDir = path.normalize(protectedDir);
-		return normalizedPath === normalizedProtectedDir || 
-			normalizedPath.startsWith(normalizedProtectedDir + path.sep);
-	});
+	stageTest?: boolean;
 }
 
 // 处理文件后缀名
@@ -128,20 +76,17 @@ function processFileExtensions(extensions: string[]): string[] {
 }
 
 export async function deleteFiles(options: DeleteFilesOptions): Promise<{ deleted: string[] }> {
-	const { dirPath, pattern, recursive, includeFiles, includeDirectories, deleteRootDir, useShell, fileExtensions, protectionConfig } = options;
+	const { dirPath, pattern, recursive, includeFiles, includeSubdirectories, deleteRootDir, useShell, fileExtensions, protectionConfig, stageTest } = options;
 	const deleted: string[] = [];
 
-	// 检查目录安全性
 	checkDirectorySafety(dirPath, protectionConfig);
-
-	// 检查目录深度
-	if (!checkDirectoryDepth(dirPath)) {
-		throw new Error(`禁止删除深度低于4级的目录: ${dirPath}`);
-	}
-
-	// 检查是否是受保护的系统目录
-	if (isProtectedDirectory(dirPath)) {
-		throw new Error(`禁止删除系统目录: ${dirPath}`);
+	// 如果启用了删除根目录选项，直接删除入口目录
+	if (deleteRootDir) {
+		if (!stageTest) {
+			await fs.promises.rmdir(dirPath, { recursive: true });
+		}
+		deleted.push(dirPath);
+		return { deleted };
 	}
 
 	// 如果启用shell命令删除
@@ -154,21 +99,39 @@ export async function deleteFiles(options: DeleteFilesOptions): Promise<{ delete
 				const processedExtensions = processFileExtensions(fileExtensions);
 				const maxDepth = recursive ? '' : '-maxdepth 1';
 				const namePattern = processedExtensions.map(ext => `-name "*${ext}"`).join(' -o ');
-				command = `find "${dirPath}" ${maxDepth} -type f \\( ${namePattern} \\) -exec rm -f {} \\;`;
+				command = `find "${dirPath}" ${maxDepth} -type f \\( ${namePattern} \\) ${stageTest ? '-print' : '-exec rm -f {} \\;'}`;
+			} else if (pattern) {
+				// 使用pattern匹配文件或目录
+				const maxDepth = recursive ? '' : '-maxdepth 1';
+				const typeOption = includeFiles && includeSubdirectories ? '' : 
+					includeFiles ? '-type f' : 
+					includeSubdirectories ? '-type d' : '';
+				
+				// 将 Node.js 正则表达式转换为 shell 兼容的格式
+				const shellPattern = utils.convertToShellRegex(pattern);
+
+				command = `find "${dirPath}" ${maxDepth} ${typeOption} -regex "${shellPattern}" ${stageTest ? '-print' : '-exec rm -rf {} \\;'}`;
 			} else if (fs.statSync(dirPath).isFile()) {
 				// 删除单个文件
-				command = `rm -f "${dirPath}"`;
+				command = stageTest ? `echo "${dirPath}"` : `rm -f "${dirPath}"`;
 			} else {
-				// 删除目录
-				if (recursive) {
-					command = `rm -rf "${dirPath}"`;
+				// 删除目录下的内容
+				if (recursive && includeSubdirectories) {
+					// 使用 rm -rf 删除目录下的所有内容（文件和子目录）
+					// 使用 find -mindepth 1 在 stageTest 模式下列出将要删除的内容
+					command = stageTest ? `find "${dirPath}" -mindepth 1 -print` : `rm -rf "${dirPath}"/*`;
 				} else {
-					command = `rm -f "${dirPath}"/*`;
+					// 只删除目录下一级的文件
+					command = stageTest ? `find "${dirPath}" -maxdepth 1 -type f -print` : `rm -f "${dirPath}"/*`;
 				}
 			}
 			
-			await execAsync(command);
-			deleted.push(dirPath);
+			const { stdout } = await execAsync(command);
+			if (stageTest) {
+				deleted.push(...stdout.split('\n').filter(Boolean));
+			} else {
+				deleted.push(dirPath);
+			}
 			return { deleted };
 		} catch (error) {
 			throw new Error(`Shell命令执行失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -181,7 +144,9 @@ export async function deleteFiles(options: DeleteFilesOptions): Promise<{ delete
 		
 		// 如果是文件，直接删除
 		if (stats.isFile()) {
-			await fs.promises.unlink(dirPath);
+			if (!stageTest) {
+				await fs.promises.unlink(dirPath);
+			}
 			deleted.push(dirPath);
 			return { deleted };
 		}
@@ -202,24 +167,22 @@ export async function deleteFiles(options: DeleteFilesOptions): Promise<{ delete
 				if (recursive) {
 					await processDirectory(fullPath);
 				}
-				if (includeDirectories && (!regex || regex.test(entry.name))) {
-					await fs.promises.rmdir(fullPath);
+				if (includeSubdirectories && (!regex || regex.test(entry.name))) {
+					if (!stageTest) {
+						await fs.promises.rmdir(fullPath, { recursive: true });
+					}
 					deleted.push(fullPath);
 				}
 			} else if (entry.isFile() && includeFiles && (!regex || regex.test(entry.name))) {
-				await fs.promises.unlink(fullPath);
+				if (!stageTest) {
+					await fs.promises.unlink(fullPath);
+				}
 				deleted.push(fullPath);
 			}
 		}
 	}
 
 	await processDirectory(dirPath);
-	
-	// 如果启用了删除根目录选项，则在处理完所有内容后删除根目录
-	if (deleteRootDir) {
-		await fs.promises.rmdir(dirPath);
-		deleted.push(dirPath);
-	}
 	
 	return { deleted };
 } 

@@ -20,6 +20,6 @@
     "moduleResolution": "node",
     "esModuleInterop": true
   },
-  "include": ["nodes/**/*", "credentials/**/*", "index.ts"],
+  "include": ["nodes/**/*", "credentials/**/*", "lib/**/*", "index.ts"],
   "exclude": ["node_modules", "dist"]
 } 

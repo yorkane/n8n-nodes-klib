@@ -11,13 +11,12 @@ import { deleteFiles, COMMON_FILE_EXTENSIONS } from './openrations/deleteFiles';
 import { moveFiles } from './openrations/moveFiles';
 import { flattenDirectory } from './openrations/flattenDirectory';
 import { rename } from './openrations/rename';
-import { DEFAULT_PROTECTION_CONFIG, MIN_DIRECTORY_DEPTH, MAX_DIRECTORY_DEPTH } from './openrations/directoryProtection';
 
 export class FsOperate implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'FileOperate',
 		name: 'fsOperate',
-		icon: 'file:FsUtils.svg',
+		icon: 'file:FsOperate.svg',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
@@ -121,6 +120,7 @@ export class FsOperate implements INodeType {
 				name: 'recursive',
 				type: 'boolean',
 				default: true,
+				description: 'Recursively process subdirectories',
 				displayOptions: {
 					show: {
 						operation: ['deleteFiles', 'moveFiles', 'cleanEmptyDirectories', 'fixFileNames'],
@@ -140,10 +140,21 @@ export class FsOperate implements INodeType {
 				},
 			},
 			{
-				displayName: 'Include Files',
-				name: 'includeFiles',
-				type: 'boolean',
-				default: true,
+				displayName: 'Include Types',
+				name: 'includeTypes',
+				type: 'multiOptions',
+				description: 'Select what types of items to include in the operation',
+				default: ['files'],
+				options: [
+					{
+						name: 'Files',
+						value: 'files',
+					},
+					{
+						name: 'Subdirectories',
+						value: 'subdirectories',
+					},
+				],
 				displayOptions: {
 					show: {
 						operation: ['deleteFiles', 'moveFiles'],
@@ -151,13 +162,41 @@ export class FsOperate implements INodeType {
 				},
 			},
 			{
-				displayName: 'Include sub Directories',
-				name: 'includeDirectories',
+				displayName: 'Use Shell Command',
+				name: 'useShell',
 				type: 'boolean',
 				default: false,
+				description: 'Use shell commands for faster file deletion (Linux/Unix systems only)',
 				displayOptions: {
 					show: {
-						operation: ['deleteFiles', 'moveFiles'],
+						operation: ['deleteFiles']
+					},
+				},
+			},
+			{
+				displayName: 'Shell delete File Extensions',
+				name: 'fileExtensions',
+				type: 'multiOptions',
+				description: 'Select file extensions to delete (multiple selection allowed)',
+				default: [],
+				options: COMMON_FILE_EXTENSIONS,
+				displayOptions: {
+					show: {
+						operation: ['deleteFiles'],
+						useShell: [true]
+					},
+				},
+			},
+			{
+				displayName: 'Shell Custom Extensions',
+				name: 'customExtensions',
+				type: 'string',
+				default: '',
+				description: 'Custom file extensions (comma-separated, e.g., bak,old,temp)',
+				displayOptions: {
+					show: {
+						operation: ['deleteFiles'],
+						useShell: [true]
 					},
 				},
 			},
@@ -178,49 +217,10 @@ export class FsOperate implements INodeType {
 				name: 'deleteRootDir',
 				type: 'boolean',
 				default: false,
-				description: 'Delete the input directory itself after processing its contents',
+				description: 'Delete entire directory tree!!',
 				displayOptions: {
 					show: {
 						operation: ['deleteFiles']
-					},
-				},
-			},
-			{
-				displayName: 'Use Shell Command',
-				name: 'useShell',
-				type: 'boolean',
-				default: false,
-				description: 'Use shell commands for faster file deletion (Linux/Unix systems only)',
-				displayOptions: {
-					show: {
-						operation: ['deleteFiles']
-					},
-				},
-			},
-			{
-				displayName: 'File Extensions',
-				name: 'fileExtensions',
-				type: 'multiOptions',
-				description: 'Select file extensions to delete (multiple selection allowed)',
-				default: [],
-				options: COMMON_FILE_EXTENSIONS,
-				displayOptions: {
-					show: {
-						operation: ['deleteFiles'],
-						useShell: [true]
-					},
-				},
-			},
-			{
-				displayName: 'Custom Extensions',
-				name: 'customExtensions',
-				type: 'string',
-				default: '',
-				description: 'Custom file extensions (comma-separated, e.g., bak,old,temp)',
-				displayOptions: {
-					show: {
-						operation: ['deleteFiles'],
-						useShell: [true]
 					},
 				},
 			},
@@ -274,6 +274,18 @@ export class FsOperate implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Stage Test',
+				name: 'stageTest',
+				type: 'boolean',
+				default: true,
+				description: 'Simulate the operation without actually performing it',
+				displayOptions: {
+					show: {
+						operation: ['deleteFiles', 'moveFiles', 'rename'],
+					},
+				},
+			},
 		],
 	};
 
@@ -299,21 +311,30 @@ export class FsOperate implements INodeType {
 					const directoryPath = this.getNodeParameter('directoryPath', i) as string;
 					const pattern = this.getNodeParameter('pattern', i) as string;
 					const recursive = this.getNodeParameter('recursive', i) as boolean;
-					const includeFiles = this.getNodeParameter('includeFiles', i) as boolean;
-					const includeDirectories = this.getNodeParameter('includeDirectories', i) as boolean;
+					const includeTypes = this.getNodeParameter('includeTypes', i) as string[];
+					const includeFiles = includeTypes.includes('files');
+					const includeSubdirectories = includeTypes.includes('subdirectories');
 					const deleteRootDir = this.getNodeParameter('deleteRootDir', i) as boolean;
 					const useShell = this.getNodeParameter('useShell', i) as boolean;
-					const fileExtensions = this.getNodeParameter('fileExtensions', i) as string[];
-					const customExtensions = this.getNodeParameter('customExtensions', i) as string;
+					
+					let fileExtensions: string[] = [];
+					let customExtensions = '';
+					
+					if (useShell) {
+						fileExtensions = this.getNodeParameter('fileExtensions', i) as string[];
+						customExtensions = this.getNodeParameter('customExtensions', i) as string;
+					}
+					
 					const result = await deleteFiles({
 						dirPath: directoryPath,
 						pattern,
 						recursive,
 						includeFiles,
-						includeDirectories,
+						includeSubdirectories: includeSubdirectories,
 						deleteRootDir,
 						useShell,
 						fileExtensions: [...(fileExtensions || []), ...(customExtensions ? customExtensions.split(',').map(ext => ext.trim()) : [])],
+						stageTest: this.getNodeParameter('stageTest', i) as boolean,
 					});
 					returnData.push({ ...items[i].json, result });
 				} else if (operation === 'moveFiles') {
@@ -321,8 +342,9 @@ export class FsOperate implements INodeType {
 					const targetDir = this.getNodeParameter('targetDir', i) as string;
 					const pattern = this.getNodeParameter('pattern', i) as string;
 					const recursive = this.getNodeParameter('recursive', i) as boolean;
-					const includeFiles = this.getNodeParameter('includeFiles', i) as boolean;
-					const includeDirectories = this.getNodeParameter('includeDirectories', i) as boolean;
+					const includeTypes = this.getNodeParameter('includeTypes', i) as string[];
+					const includeFiles = includeTypes.includes('files');
+					const includeSubdirectories = includeTypes.includes('subdirectories');
 					const renameOnly = this.getNodeParameter('renameOnly', i) as boolean;
 					const result = await moveFiles({
 						sourcePath: sourceDir,
@@ -330,8 +352,9 @@ export class FsOperate implements INodeType {
 						pattern,
 						recursive,
 						includeFiles,
-						includeDirectories,
+						includeSubdirectories,
 						renameOnly,
+						stageTest: this.getNodeParameter('stageTest', i) as boolean,
 					});
 					returnData.push({ ...items[i].json, result });
 				} else if (operation === 'flattenDirectory') {
@@ -348,6 +371,7 @@ export class FsOperate implements INodeType {
 						targetPath,
 						pattern,
 						replacement,
+						stageTest: this.getNodeParameter('stageTest', i) as boolean,
 					});
 					if (result.renamed) {
 						const path = require('path');

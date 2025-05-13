@@ -30,6 +30,9 @@ interface FindOptions {
 	maxDepth?: number;         // Traversal depth
 	onlyLeafDirs?: boolean;    // Show only leaf directories
 	filter?: string;          // Regular expression pattern to filter files/directories by name
+	sortBy?: string;          // Sort by field (name, mtime, type)
+	sortDirection?: 'asc' | 'desc'; // Sort direction
+	maxRecords?: number;      // Maximum number of records to return
 }
 
 /**
@@ -47,7 +50,7 @@ function processFileExtensions(extensions: string): string[] {
  * Get file list using find command
  */
 export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
-	const { dirPath, fileExtensions = '', maxDepth = 1, showFiles = true, showDirectories = true, filter } = options;
+	const { dirPath, fileExtensions = '', maxDepth = 1, showFiles = true, showDirectories = true, filter, sortBy = 'name', sortDirection = 'asc', onlyLeafDirs = false, maxRecords = 100 } = options;
 	
 	// First verify directory exists
 	if (!fs.existsSync(dirPath)) {
@@ -129,14 +132,20 @@ export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
 						const itemPath = path.join(fullPath, item);
 						return fs.existsSync(itemPath) && fs.statSync(itemPath).isDirectory();
 					});
-				} catch (error) {
+				} catch (_) {
 					// 忽略子目录检查错误
 				}
 			}
+
+			// 如果是目录且启用了 onlyLeafDirs，则跳过有子目录的目录
+			if (isDirectory && onlyLeafDirs && hasSubDirs) {
+				continue;
+			}
+
 			const fileInfo: FileInfo = {
 				name: path.basename(fullPath),
-				path: fullPath,
-				parent: path.dirname(fullPath),
+				path: isDirectory ? fullPath + '/' : fullPath,
+				parent: path.dirname(fullPath) + '/',
 				type: isDirectory ? 'directory' : 'file',
 				size: parseInt(size, 10) || 0,
 				mtime: new Date(parseInt(mtime, 10) * 1000),
@@ -151,14 +160,47 @@ export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
 					if (!regex.test(fileInfo.name)) {
 						continue;
 					}
-				} catch (error) {
+				} catch (_) {
 					// 忽略无效正则
 				}
 			}
 			results.push(fileInfo);
 		}
 		// console.log(`findFiles: found ${results.length} files/directories`);
-		return results;
+
+		// 应用排序
+		results.sort((a, b) => {
+			let comparison = 0;
+			switch (sortBy) {
+				case 'name':
+					comparison = a.name.localeCompare(b.name);
+					break;
+				case 'mtime':
+					comparison = a.mtime.getTime() - b.mtime.getTime();
+					break;
+				case 'type':
+					comparison = a.type.localeCompare(b.type);
+					break;
+				case 'size':
+					comparison = a.size - b.size;
+					break;
+				case 'depth':
+					comparison = a.depth - b.depth;
+					break;
+				case 'path':
+					comparison = a.path.localeCompare(b.path);
+					break;
+				case 'parent':
+					comparison = a.parent.localeCompare(b.parent);
+					break;
+				default:
+					return 0;
+			}
+			return sortDirection === 'asc' ? comparison : -comparison;
+		});
+
+		// 限制返回记录数
+		return results.slice(0, maxRecords);
 	} catch (error) {
 		const errorMsg = `findFiles: exception: ${error.message}`;
 		console.error(errorMsg);

@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Buffer } from 'buffer';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -92,7 +91,6 @@ export async function fixFileNames(dirPath: string, recursive: boolean = true, o
 			}
 		}
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
 		console.error(`Error processing directory "${dirPath}":`, error);
 		throw error;
 	}
@@ -148,7 +146,7 @@ async function fixFileNamesFallback(dirPath: string, recursive: boolean = true, 
 						await fs.promises.rename(fullPath, uniquePath);
 						result.newPath = uniquePath;
 						result.success = true;
-					} catch (accessError) {
+					} catch {
 						// 文件不存在，可以安全重命名
 						await fs.promises.rename(fullPath, newPath);
 						result.newPath = newPath;
@@ -166,20 +164,18 @@ async function fixFileNamesFallback(dirPath: string, recursive: boolean = true, 
 				
 				results.push(result);
 			} catch (error) {
-				const errorMessage = error instanceof Error ? error.message : String(error);
 				results.push({
 					originalPath: path.join(dirPath, entry.name),
 					newPath: path.join(dirPath, entry.name),
 					type: entry.isDirectory() ? 'directory' : 'file',
 					success: false,
-					error: errorMessage
+					error: error instanceof Error ? error.message : String(error)
 				});
 				console.error(`Error processing file "${entry.name}":`, error);
 				continue;
 			}
 		}
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
 		console.error(`Error reading directory "${dirPath}":`, error);
 		throw error;
 	}

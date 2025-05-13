@@ -6,13 +6,16 @@ interface RenameOptions {
     targetPath: string;
     pattern?: string;
     replacement?: string;
+    stageTest?: boolean;
 }
 
 export async function rename(options: RenameOptions): Promise<{ renamed: string | null }> {
-    const { sourcePath, targetPath, pattern, replacement } = options;
+    const { sourcePath, targetPath, pattern, replacement, stageTest = false } = options;
 
     // 确保目标目录存在
-    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+    if (!stageTest) {
+        await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+    }
 
     // 检查源路径是文件还是目录
     const stats = await fs.promises.stat(sourcePath);
@@ -32,7 +35,9 @@ export async function rename(options: RenameOptions): Promise<{ renamed: string 
             }
         }
 
-        await fs.promises.rename(sourcePath, finalTargetPath);
+        if (!stageTest) {
+            await fs.promises.rename(sourcePath, finalTargetPath);
+        }
         if (isRenamed || sourcePath !== finalTargetPath) {
             return { renamed: finalTargetPath };
         }
@@ -51,7 +56,9 @@ export async function rename(options: RenameOptions): Promise<{ renamed: string 
             }
         }
 
-        await fs.promises.rename(sourcePath, finalTargetPath);
+        if (!stageTest) {
+            await fs.promises.rename(sourcePath, finalTargetPath);
+        }
         if (isRenamed || sourcePath !== finalTargetPath) {
             return { renamed: finalTargetPath };
         }
