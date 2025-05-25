@@ -4,6 +4,7 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	IBinaryData,
+	IBinaryKeyData,
 } from 'n8n-workflow';
 import { listDirectory } from './operations/listDirectory';
 import { readFile } from './operations/readFile';
@@ -59,6 +60,41 @@ export class FsUtils implements INodeType {
 					},
 				],
 				default: 'listDirectory',
+			},
+			{
+				displayName: 'Input Source',
+				name: 'readInputSource',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						operation: ['readFile'],
+					},
+				},
+				options: [
+					{
+						name: 'File Path',
+						value: 'filePathSrc',
+						description: 'Read from a specified file path',
+					},
+					{
+						name: 'Binary Property from Input Item',
+						value: 'binaryPropSrc',
+						description: 'Read from a binary property of the input n8n item',
+					},
+					{
+						name: 'Base64 Property from Input Item JSON',
+						value: 'base64JsonPropSrc',
+						description: 'Read from a property in the input item JSON that contains a Base64 string',
+					},
+					{
+						name: 'Direct Base64 String',
+						value: 'base64DirectSrc',
+						description: 'Input Base64 string directly in the node',
+					},
+				],
+				default: 'filePathSrc',
+				description: 'Select the source for the file content.',
 			},
 			{
 				displayName: 'Directory Path',
@@ -255,14 +291,55 @@ export class FsUtils implements INodeType {
 				name: 'filePath',
 				type: 'string',
 				default: '',
-				required: true,
-				description: '文件路径，每行一个路径',
+				description: 'Path to the file if "Input Source" is "File Path". Otherwise, this is optional and can provide metadata (like filename or type hint) for other input sources.',
 				typeOptions: {
 					rows: 4,
 				},
 				displayOptions: {
 					show: {
 						operation: ['readFile', 'writeFile', 'searchContent'],
+					},
+				},
+			},
+			{
+				displayName: 'Input Binary Property',
+				name: 'inputBinaryDataProperty',
+				type: 'string',
+				default: 'data',
+				description: 'Name of the binary property in the input item to read data from. Required if "Input Source" is "Binary Property from Input Item".',
+				displayOptions: {
+					show: {
+						operation: ['readFile'],
+						readInputSource: ['binaryPropSrc'],
+					},
+				},
+			},
+			{
+				displayName: 'Input Item JSON Property for Base64',
+				name: 'inputBase64DataProperty',
+				type: 'string',
+				default: '',
+				description: 'Name of the property in the input item JSON data that contains the Base64 encoded string. Required if "Input Source" is "Base64 Property from Input Item JSON".',
+				displayOptions: {
+					show: {
+						operation: ['readFile'],
+						readInputSource: ['base64JsonPropSrc'],
+					},
+				},
+			},
+			{
+				displayName: 'Direct Base64 String Content',
+				name: 'directBase64Content',
+				type: 'string',
+				default: '',
+				typeOptions: {
+					rows: 4,
+				},
+				description: 'Paste the Base64 encoded string directly here. Required if "Input Source" is "Direct Base64 String".',
+				displayOptions: {
+					show: {
+						operation: ['readFile'],
+						readInputSource: ['base64DirectSrc'],
 					},
 				},
 			},
@@ -303,10 +380,6 @@ export class FsUtils implements INodeType {
 					{
 						name: 'None',
 						value: 'none',
-					},
-					{
-						name: 'XXHash64',
-						value: 'xxhash64',
 					},
 					{
 						name: 'MD5',
@@ -364,14 +437,14 @@ export class FsUtils implements INodeType {
 				type: 'string',
 				default: '',
 				required: true,
-				description: '要写入文件的内容',
+				description: '要写入文件的内容 (文本或Base64字符串)',
 				typeOptions: {
 					rows: 5,
 				},
 				displayOptions: {
 					show: {
 						operation: ['writeFile'],
-						contentType: ['text'],
+						contentType: ['text', 'base64_string'],
 					},
 				},
 			},
@@ -385,9 +458,13 @@ export class FsUtils implements INodeType {
 						value: 'text',
 					},
 					{
-						name: 'Binary',
+						name: 'Binary Property',
 						value: 'binary',
 					},
+					{
+						name: 'Base64 String',
+						value: 'base64_string',
+					}
 				],
 				default: 'text',
 				description: '内容类型',
@@ -601,9 +678,37 @@ export class FsUtils implements INodeType {
 							});
 						});
 					} else if (operation === 'readFile') {
-						const filePath = this.getNodeParameter('filePath', i) as string;
-						if (!filePath) {
-							throw new Error('File path is required');
+						const readInputSource = this.getNodeParameter('readInputSource', i) as string ?? 'filePathSrc';
+						
+						const filePathForMeta = this.getNodeParameter('filePath', i) as string | undefined;
+
+						let actualFilePath: string | undefined;
+						let inputBinaryPropValue: string | undefined;
+						let inputBase64JsonPropValue: string | undefined;
+						let directBase64StrValue: string | undefined;
+
+						if (readInputSource === 'filePathSrc') {
+							actualFilePath = this.getNodeParameter('filePath', i) as string;
+							if (!actualFilePath) {
+								throw new Error('File Path is required when Input Source is "File Path".');
+							}
+						} else if (readInputSource === 'binaryPropSrc') {
+							inputBinaryPropValue = this.getNodeParameter('inputBinaryDataProperty', i) as string;
+							if (!inputBinaryPropValue) {
+								throw new Error('Input Binary Property name is required when Input Source is "Binary Property from Input Item".');
+							}
+						} else if (readInputSource === 'base64JsonPropSrc') {
+							inputBase64JsonPropValue = this.getNodeParameter('inputBase64DataProperty', i) as string;
+							if (!inputBase64JsonPropValue) {
+								throw new Error('Input Item JSON Property for Base64 name is required when Input Source is "Base64 Property from Input Item JSON".');
+							}
+						} else if (readInputSource === 'base64DirectSrc') {
+							directBase64StrValue = this.getNodeParameter('directBase64Content', i) as string;
+							if (!directBase64StrValue) {
+								throw new Error('Direct Base64 String Content is required when Input Source is "Direct Base64 String".');
+							}
+						} else {
+							throw new Error(`Invalid Input Source selected for Read File operation: ${readInputSource}`);
 						}
 						
 						const outputFormat = this.getNodeParameter('outputFormat', i) as string || 'auto';
@@ -612,7 +717,10 @@ export class FsUtils implements INodeType {
 						const onlyOutputDigest = digestAlgorithm !== 'none' ? this.getNodeParameter('onlyOutputDigest', i) as boolean || false : false;
 						
 						const result = await readFile({
-							filePath,
+							filePath: actualFilePath || filePathForMeta, // actualFilePath if source is filePath, else filePathForMeta for metadata
+							inputBinaryDataProperty: inputBinaryPropValue,
+							inputBase64DataProperty: inputBase64JsonPropValue,
+							directBase64Content: directBase64StrValue, // This will be a new param for readFile
 							outputFormat: outputFormat as 'auto' | 'base64' | 'binary' | 'string',
 							digestAlgorithm: digestAlgorithm as 'none' | 'md5' | 'sha1' | 'sha256' | 'sha512',
 							context: this,
@@ -628,20 +736,25 @@ export class FsUtils implements INodeType {
 						}
 
 						const contentType = this.getNodeParameter('contentType', i) as string;
-						let content: string | IBinaryData;
-						
+						let content: string | Buffer;
+						let encoding: BufferEncoding;
+
 						if (contentType === 'binary') {
 							const binaryProperty = this.getNodeParameter('binaryProperty', i) as string;
-							const binaryData = items[i].binary?.[binaryProperty];
-							if (!binaryData) {
-								throw new Error(`未找到二进制数据属性: ${binaryProperty}`);
+							content = await this.helpers.getBinaryDataBuffer(i, binaryProperty);
+							encoding = 'binary';
+						} else if (contentType === 'base64_string') {
+							const base64Content = this.getNodeParameter('content', i) as string;
+							if (!base64Content) {
+								throw new Error('Content (Base64 string) is required for writeFile operation with contentType base64_string');
 							}
-							content = binaryData;
+							content = Buffer.from(base64Content, 'base64');
+							encoding = 'binary';
 						} else {
 							content = this.getNodeParameter('content', i) as string;
+							encoding = this.getNodeParameter('encoding', i) as BufferEncoding || 'utf8';
 						}
 
-						const encoding = this.getNodeParameter('encoding', i) as BufferEncoding;
 						const append = this.getNodeParameter('append', i) as boolean;
 						const createDirectory = this.getNodeParameter('createDirectory', i) as boolean;
 

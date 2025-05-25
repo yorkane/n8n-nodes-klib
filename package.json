@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-klib",
-  "version": "0.1.22",
+  "version": "1.0.5",
   "description": "A collection of useful n8n nodes for file system operations, aria2 integration, image processing and torrent parsing",
   "keywords": [
     "n8n-community-node-package",
@@ -32,6 +32,18 @@
     "dist",
     "lib"
   ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [],
+    "nodes": [
+      "dist/nodes/ImageProcessor/ImageProcessor.node.js",
+      "dist/nodes/Aria2/Aria2.node.js",
+      "dist/nodes/Aria2/Aria2Proc.node.js",
+      "dist/nodes/TorrentParse/TorrentParse.node.js",
+      "dist/nodes/FsUtils/FsUtils.node.js",
+      "dist/nodes/FsOperate/FsOperate.node.js"
+    ]
+  },
   "dependencies": {
     "@types/mime-types": "^2.1.4",
     "axios": "^1.6.7",

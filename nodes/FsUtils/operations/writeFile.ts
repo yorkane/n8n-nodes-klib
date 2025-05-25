@@ -1,11 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { IExecuteFunctions, INodeExecutionData, IBinaryData } from 'n8n-workflow';
+import { IExecuteFunctions, INodeExecutionData, IBinaryData, IBinaryKeyData } from 'n8n-workflow';
 import { checkDirectorySafety } from '../../FsOperate/openrations/directoryProtection';
 
 interface WriteFileOptions {
 	filePath: string;
-	content: string | Buffer | IBinaryData;
+	content: string | Buffer | IBinaryKeyData;
 	encoding?: BufferEncoding;
 	append?: boolean;
 	createDirectory?: boolean;
@@ -48,10 +48,13 @@ export async function writeFile(options: WriteFileOptions): Promise<INodeExecuti
 			writeContent = content;
 		} else if (typeof content === 'string') {
 			writeContent = Buffer.from(content, encoding);
-		} else if (content && typeof content === 'object' && 'data' in content) {
-			// 处理 BinaryData 类型
-			const binaryData = await context.helpers.getBinaryDataBuffer(itemIndex, content.data);
-			writeContent = binaryData;
+		} else if (content && typeof content === 'object' && 'binary' in content) {
+			// 处理 IBinaryKeyData 类型
+			const binaryPropertyName = Object.keys(content.binary || {})[0];
+			if (!binaryPropertyName) {
+				throw new Error('No binary property found in input');
+			}
+			writeContent = await context.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName);
 		} else {
 			throw new Error('不支持的内容类型');
 		}
