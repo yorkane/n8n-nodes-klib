@@ -35,7 +35,7 @@ export async function readFile(options: ReadFileOptions): Promise<INodeExecution
 	} = options;
 
 	let buffer: Buffer;
-	let resolvedFilePath: string | undefined = filePath;
+	const resolvedFilePath: string | undefined = filePath;
 	let fileSize: number;
 	let effectiveFileName: string;
 	let determinedMimeType: string;
@@ -193,9 +193,9 @@ export async function readFile(options: ReadFileOptions): Promise<INodeExecution
 		}
 
 		if (content === undefined && !binaryOutput) {
-			 const binaryData = await context.helpers.prepareBinaryData(buffer, effectiveFileName, determinedMimeType);
-			 binaryOutput = { [binaryPropertyName]: binaryData	};
-			 currentMimeType = determinedMimeType;
+			const binaryData = await context.helpers.prepareBinaryData(buffer, effectiveFileName, determinedMimeType);
+			binaryOutput = { [binaryPropertyName]: binaryData	};
+			currentMimeType = determinedMimeType;
 		}
 	}
 

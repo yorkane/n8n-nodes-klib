@@ -287,6 +287,18 @@ export class FsUtils implements INodeType {
 				},
 			},
 			{
+				displayName: 'Exclude Pattern',
+				name: 'excludePattern',
+				type: 'string',
+				default: '',
+				description: 'Regular expression pattern to exclude files/directories from results',
+				displayOptions: {
+					show: {
+						operation: ['listDirectory', 'findFiles'],
+					},
+				},
+			},
+			{
 				displayName: 'File Path',
 				name: 'filePath',
 				type: 'string',
@@ -584,6 +596,18 @@ export class FsUtils implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Return Single Object',
+				name: 'returnSingleObject',
+				type: 'boolean',
+				default: false,
+				description: '返回单个对象而不是数组。如果找到多个结果，只返回第一个；如果没有找到结果，返回空对象',
+				displayOptions: {
+					show: {
+						operation: ['listDirectory', 'findFiles'],
+					},
+				},
+			},
 		],
 	};
 
@@ -606,33 +630,43 @@ export class FsUtils implements INodeType {
 						}
 
 						const showType = this.getNodeParameter('showType', i) as string;
-						const showFiles = showType === 'both' || showType === 'files';
-						const showDirectories = showType === 'both' || showType === 'directories';
-						const maxDepth = this.getNodeParameter('maxDepth', i) as number ?? 1;
-						const sortBy = this.getNodeParameter('sortBy', i) as string ?? 'name';
-						const sortDirection = this.getNodeParameter('sortDirection', i) as string ?? 'asc';
-						const filter = this.getNodeParameter('filter', i) as string || '';
-						const onlyLeafFolders = showDirectories ? this.getNodeParameter('onlyLeafFolders', i) as boolean || false : false;
-						const maxRecords = this.getNodeParameter('maxRecords', i) as number ?? 100;
+					const showFiles = showType === 'both' || showType === 'files';
+					const showDirectories = showType === 'both' || showType === 'directories';
+					const maxDepth = this.getNodeParameter('maxDepth', i) as number ?? 1;
+					const sortBy = this.getNodeParameter('sortBy', i) as string ?? 'name';
+					const sortDirection = this.getNodeParameter('sortDirection', i) as string ?? 'asc';
+					const filter = this.getNodeParameter('filter', i) as string || '';
+					const excludePattern = this.getNodeParameter('excludePattern', i) as string || '';
+					const onlyLeafFolders = showDirectories ? this.getNodeParameter('onlyLeafFolders', i) as boolean || false : false;
+					const maxRecords = this.getNodeParameter('maxRecords', i) as number ?? 100;
+					const returnSingleObject = this.getNodeParameter('returnSingleObject', i) as boolean ?? false;
 
-						const result = await listDirectory({
-							dirPath: directoryPath,
-							showFiles,
-							showDirectories,
-							maxDepth,
-							sortBy,
-							sortDirection: sortDirection as 'asc' | 'desc',
-							filter,
-							onlyLeafDirs: onlyLeafFolders,
-							maxRecords,
-						});
+					const result = await listDirectory({
+						dirPath: directoryPath,
+						showFiles,
+						showDirectories,
+						maxDepth,
+						sortBy,
+						sortDirection: sortDirection as 'asc' | 'desc',
+						filter,
+						excludePattern,
+						onlyLeafDirs: onlyLeafFolders,
+						maxRecords,
+						returnSingleObject,
+					});
 						
 						// 将结果转换为 INodeExecutionData 格式
-						result.forEach(item => {
+						if (returnSingleObject) {
 							returnData.push({
-								json: item
+								json: { datas: Array.isArray(result) ? result : [result] }
 							});
-						});
+						} else {
+							(result as any[]).forEach(item => {
+								returnData.push({
+									json: item
+								});
+							});
+						}
 					} else if (operation === 'findFiles') {
 						const directoryPath = this.getNodeParameter('directoryPath', i) as string;
 						if (!directoryPath) {
@@ -649,34 +683,44 @@ export class FsUtils implements INodeType {
 						].join(',');
 
 						const showType = this.getNodeParameter('showType', i) as string;
-						const showFiles = showType === 'both' || showType === 'files';
-						const showDirectories = showType === 'both' || showType === 'directories';
-						const maxDepth = this.getNodeParameter('maxDepth', i) as number ?? 1;
-						const sortBy = this.getNodeParameter('sortBy', i) as string ?? 'name';
-						const sortDirection = this.getNodeParameter('sortDirection', i) as string ?? 'asc';
-						const filter = this.getNodeParameter('filter', i) as string || '';
-						const onlyLeafFolders = showDirectories ? this.getNodeParameter('onlyLeafFolders', i) as boolean || false : false;
-						const maxRecords = this.getNodeParameter('maxRecords', i) as number ?? 100;
+					const showFiles = showType === 'both' || showType === 'files';
+					const showDirectories = showType === 'both' || showType === 'directories';
+					const maxDepth = this.getNodeParameter('maxDepth', i) as number ?? 1;
+					const sortBy = this.getNodeParameter('sortBy', i) as string ?? 'name';
+					const sortDirection = this.getNodeParameter('sortDirection', i) as string ?? 'asc';
+					const filter = this.getNodeParameter('filter', i) as string || '';
+					const excludePattern = this.getNodeParameter('excludePattern', i) as string || '';
+					const onlyLeafFolders = showDirectories ? this.getNodeParameter('onlyLeafFolders', i) as boolean || false : false;
+					const maxRecords = this.getNodeParameter('maxRecords', i) as number ?? 100;
+					const returnSingleObject = this.getNodeParameter('returnSingleObject', i) as boolean ?? false;
 
-						const result = await findFiles({
-							dirPath: directoryPath,
-							fileExtensions,
-							showFiles,
-							showDirectories,
-							maxDepth,
-							filter,
-							sortBy,
-							sortDirection: sortDirection as 'asc' | 'desc',
-							onlyLeafDirs: onlyLeafFolders,
-							maxRecords,
-						});
+					const result = await findFiles({
+						dirPath: directoryPath,
+						fileExtensions,
+						showFiles,
+						showDirectories,
+						maxDepth,
+						filter,
+						excludePattern,
+						sortBy,
+						sortDirection: sortDirection as 'asc' | 'desc',
+						onlyLeafDirs: onlyLeafFolders,
+						maxRecords,
+						returnSingleObject,
+					});
 
 						// 将结果转换为 INodeExecutionData 格式
-						result.forEach(item => {
+						if (returnSingleObject) {
 							returnData.push({
-								json: item
+								json: { datas: Array.isArray(result) ? result : [result] }
 							});
-						});
+						} else {
+							(result as any[]).forEach(item => {
+								returnData.push({
+									json: item
+								});
+							});
+						}
 					} else if (operation === 'readFile') {
 						const readInputSource = this.getNodeParameter('readInputSource', i) as string ?? 'filePathSrc';
 						
@@ -783,6 +827,7 @@ export class FsUtils implements INodeType {
 								},
 							});
 						}
+
 					} else {
 						throw new Error(`Unsupported operation: ${operation}`);
 					}
@@ -813,6 +858,8 @@ export class FsUtils implements INodeType {
 			}
 		}
 
+
+		
 		return [returnData];
 	}
-} 
+}

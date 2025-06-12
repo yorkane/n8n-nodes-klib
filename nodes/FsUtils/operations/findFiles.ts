@@ -30,9 +30,11 @@ interface FindOptions {
 	maxDepth?: number;         // Traversal depth
 	onlyLeafDirs?: boolean;    // Show only leaf directories
 	filter?: string;          // Regular expression pattern to filter files/directories by name
+	excludePattern?: string;  // Regular expression pattern to exclude files/directories from results
 	sortBy?: string;          // Sort by field (name, mtime, type)
 	sortDirection?: 'asc' | 'desc'; // Sort direction
 	maxRecords?: number;      // Maximum number of records to return
+	returnSingleObject?: boolean; // Return single object instead of array
 }
 
 /**
@@ -49,13 +51,25 @@ function processFileExtensions(extensions: string): string[] {
 /**
  * Get file list using find command
  */
-export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
-	const { dirPath, fileExtensions = '', maxDepth = 1, showFiles = true, showDirectories = true, filter, sortBy = 'name', sortDirection = 'asc', onlyLeafDirs = false, maxRecords = 100 } = options;
+export async function findFiles(options: FindOptions): Promise<FileInfo[] | FileInfo> {
+	const { dirPath, fileExtensions = '', maxDepth = 1, showFiles = true, showDirectories = true, filter, excludePattern, sortBy = 'name', sortDirection = 'asc', onlyLeafDirs = false, maxRecords = 100, returnSingleObject = false } = options;
+	
+	// Check if running on Windows
+	if (process.platform === 'win32') {
+		throw new Error('Find Files operation is not supported on Windows systems. This operation requires Linux/Unix environment.');
+	}
 	
 	// First verify directory exists
 	if (!fs.existsSync(dirPath)) {
 		const error = `Directory does not exist: ${dirPath}`;
 		throw new Error(error);
+	}
+	
+	// Check directory permissions
+	try {
+		await fs.promises.access(dirPath, fs.constants.R_OK);
+	} catch (error) {
+		throw new Error(`Permission denied: Cannot read directory ${dirPath}`);
 	}
 
 	// Build find command
@@ -97,12 +111,13 @@ export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
 		return [];
 	}
 	
-	// Add stat command to get detailed information
-	command += ' -exec stat -c "%n\\t%Y\\t%s\\t%F" {} \\;';
+	// Add stat command to get detailed information, ignore permission errors
+	command += ' -exec stat -c "%n\\t%Y\\t%s\\t%F" {} \\; 2>/dev/null';
 	console.log('findFiles: command =', command);
 	try {
 		const { stdout, stderr } = await execAsync(command);
-		if (stderr) {
+		// Ignore permission denied errors in stderr
+		if (stderr && !stderr.includes('Permission denied') && !stderr.includes('No such file or directory')) {
 			console.error('findFiles: error:', stderr);
 			throw new Error(`Find command error: ${stderr}`);
 		}
@@ -126,14 +141,22 @@ export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
 			let hasSubDirs = false;
 			if (isDirectory) {
 				try {
-					const { stdout: lsOutput } = await execAsync(`ls -A "${fullPath}"`);
+					// Check directory permissions first
+					await fs.promises.access(fullPath, fs.constants.R_OK);
+					const { stdout: lsOutput } = await execAsync(`ls -A "${fullPath}" 2>/dev/null`);
 					hasSubDirs = lsOutput.split('\n').some(item => {
 						if (!item.trim()) return false;
 						const itemPath = path.join(fullPath, item);
-						return fs.existsSync(itemPath) && fs.statSync(itemPath).isDirectory();
+						try {
+							return fs.existsSync(itemPath) && fs.statSync(itemPath).isDirectory();
+						} catch (_) {
+							// 忽略单个文件的权限错误
+							return false;
+						}
 					});
 				} catch (_) {
-					// 忽略子目录检查错误
+					// 忽略子目录检查错误（权限不足等）
+					hasSubDirs = false;
 				}
 			}
 
@@ -164,6 +187,19 @@ export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
 					// 忽略无效正则
 				}
 			}
+
+			// 应用排除过滤
+			if (excludePattern) {
+				try {
+					const excludeRegex = new RegExp(excludePattern);
+					if (excludeRegex.test(fileInfo.name)) {
+						continue;
+					}
+				} catch (_) {
+					// 忽略无效的排除正则表达式
+				}
+			}
+
 			results.push(fileInfo);
 		}
 		// console.log(`findFiles: found ${results.length} files/directories`);
@@ -200,10 +236,26 @@ export async function findFiles(options: FindOptions): Promise<FileInfo[]> {
 		});
 
 		// 限制返回记录数
-		return results.slice(0, maxRecords);
+		const finalResults = results.slice(0, maxRecords);
+		
+		// 如果设置了返回单个对象，返回第一个结果或空对象
+		if (returnSingleObject) {
+			return finalResults.length > 0 ? finalResults[0] : {
+				name: '',
+				path: '',
+				parent: '',
+				type: 'file' as const,
+				size: 0,
+				mtime: new Date(),
+				depth: 0,
+				hasSubDirs: false
+			};
+		}
+		
+		return finalResults;
 	} catch (error) {
 		const errorMsg = `findFiles: exception: ${error.message}`;
 		console.error(errorMsg);
 		throw new Error(errorMsg);
 	}
-} 
+}
