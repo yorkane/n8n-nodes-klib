@@ -114,7 +114,7 @@ export class HttpPoll implements INodeType {
 				name: 'successPattern',
 				type: 'string',
 				default: '',
-				placeholder: 'status":\s*"success"',
+				placeholder: 'status:"success"',
 				description: 'Regex pattern to match in response for success',
 			},
 			{
