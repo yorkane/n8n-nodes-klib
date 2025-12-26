@@ -21,10 +21,10 @@
     "url": "https://github.com/yorkane/n8n-nodes-klib.git"
   },
   "scripts": {
-    "build": "npx tsc && gulp build:icons",
+    "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
     "format": "prettier nodes --write",
-    "lint": "eslint nodes package.json",
+    "lint": "eslint .",
     "lintfix": "eslint nodes --fix",
     "prepublishOnly": "npm run build && npm run lint"
   },
