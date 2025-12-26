@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-klib",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "A collection of useful n8n nodes for file system operations, aria2 integration, image processing and torrent parsing",
   "keywords": [
     "n8n-community-node-package",
