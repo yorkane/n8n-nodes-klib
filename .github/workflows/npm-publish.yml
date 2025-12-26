@@ -29,7 +29,6 @@ jobs:
           git add .
           git commit -m "Bump version" || echo "No changes to commit"
           git push origin main
-      - run: npm version patch
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
